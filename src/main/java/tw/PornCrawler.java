@@ -12,11 +12,13 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import tw.PornBot;
+import tw.Utils.RnkeyUtils;
 import tw.common.Properties;
 import tw.dao.PornRecordDao;
 import tw.entity.PornRecord;
 import tw.service.DownloadService;
 
+import javax.script.ScriptException;
 import java.io.File;
 import java.util.HashMap;
 import java.util.regex.Matcher;
@@ -34,13 +36,22 @@ public class PornCrawler extends WebCrawler {
 
     @Autowired
     private ObjectMapper objectMapper;
-
+    private int time;
     private static final Logger logger = LoggerFactory.getLogger(PornBot.class);
     private static final Pattern VIEWKEY_PATTERN = Pattern.compile("(.*)(viewkey=)(.*[\\&]{0,1})(.*)");
     private static final Pattern p = Pattern.compile("(.*)(var flashvars_.*?=)(.*?language.*?})(.*)(Categories\\:<\\/h3>)(.*?(<\\/div>))(.*)(VIDEO_SHOW = )(.*watched.*?})(.*)");
 
     @Override
     public boolean shouldVisit(Page referringPage, WebURL url) {
+        if(referringPage.getStatusCode() == 429){
+            String html = ((HtmlParseData) referringPage.getParseData()).getHtml().replaceAll("\n", "");
+            try {
+                RnkeyUtils.html(html);
+            } catch (ScriptException e) {
+                e.printStackTrace();
+            }
+        }
+
         if((url.getURL().startsWith("https://www.pornhub.com/")||url.getURL().startsWith("http://www.pornhub.com/")) && url.getURL().contains("viewkey=")) {
             return true;
         } else {
@@ -62,10 +73,20 @@ public class PornCrawler extends WebCrawler {
     @Override
     public void visit(Page page) {
         if(page.getWebURL().getURL().contains("")) {
+
             String html = ((HtmlParseData) page.getParseData()).getHtml().replaceAll("\n", "");
+            if(page.getStatusCode() == 429){
+                try {
+                    RnkeyUtils.html(html);
+                    return;
+                } catch (ScriptException e) {
+                    e.printStackTrace();
+                }
+            }
             Matcher htmlMatcher = Pattern.compile("(.*)(var flashvars.*?)(\\{.*language.*?})(.*)").matcher(html);
             if(htmlMatcher.matches()) {
                 logger.info("Find video url:[{}]", page.getWebURL().getURL());
+
                 try {
                     String viewKey = getEmbedKey(page.getWebURL());
                     String videoJson = htmlMatcher.replaceAll("$3");
@@ -78,7 +99,18 @@ public class PornCrawler extends WebCrawler {
                     }
                 } catch (Exception e) {
                     logger.error("Download fail", e);
+
                 }
+            } else if(Pattern.compile("(.*)(function leastFactor\\(n\\).*)(function go\\(\\) \\{ )(.*)(n=leastFactor\\(p\\);\\{)(.*?=)(.*?;)(.*)").matcher(html).matches()) {
+                try {
+                    RnkeyUtils.html(html);
+                    myController.addSeed(page.getWebURL().getURL());
+                } catch (ScriptException e1) {
+                    e1.printStackTrace();
+                }
+            } else {
+
+                System.out.println("gg" + page.getWebURL().getURL());
             }
         }
     }

@@ -43,7 +43,7 @@ public class PornCrawlControllerFactory {
         config.setDefaultHeaders(prepareHeader());
         config.setCookieStore(new PornCookieStore());
         config.setMaxDownloadSize(Properties.MAX_VIDEO_SIZE);
-        config.setPolitenessDelay(1000);
+        config.setPolitenessDelay(2000);
         config.setUserAgentString(RandomAgentsUtils.nextAgent());
         config.setResumableCrawling(true);
         return config;
